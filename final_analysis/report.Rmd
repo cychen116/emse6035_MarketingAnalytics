@@ -1,0 +1,1264 @@
+---
+title: "Omao Disposable Cutlery"
+subtitle: "Final Analysis"
+author: Chi-Yun Chen, Laura Kadue, Weijie Pan, Vyshaaly Sivakumaar
+date: December 13, 2021 
+output: 
+  rmdformats::material
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  comment = "#>",
+  fig.path = "figs/", # Folder where rendered plots are saved
+  fig.width = 7.252, # Default plot width
+  fig.height = 4, # Default plot height
+  fig.retina = 3 # For better plot resolution
+)
+
+# Load libraries here
+library(tidyverse)
+library(here)
+library(fastDummies)
+library(lubridate)
+library(logitr)
+library(cowplot)
+library(maddTools)
+library(conjointTools)
+library(knitr)
+```
+
+
+# Abstract
+
+This report consists of the design and analysis of a study conducted by graduate students at the George Washington University to identify consumer preferences for individually packaged disposable cutlery. The results indicate that there is a definite market for biodegradable cutlery.
+
+# Introduction
+
+With growing concerns regarding the impact of use of plastics on the environment, the global shift towards use of biodegradable products has increased exponentially in the last decade. Over 380 million tons of plastic are produced worldwide every year, and some reports indicate that up to 50% of that is for single-use purposes.^[1](https://plasticoceans.org/the-facts/#:~:text=We%20are%20producing%20over%20380,at%20least%20several%20hundred%20years)^ Single-use plastics are products that are made from petrochemicals and are meant to be disposed of right after use—often, within minutes. Some of the commonly used single-use plastics include bottles, wrappers, straws, cutlery and bags. Among these, use of plastic cutlery has shot up concerningly. 
+
+The recent global health crisis drove the disposable cutlery market to its peak. As restaurants across the United States shifted to takeout services to continue functioning during the pandemic, disposable cutlery became the only option due to health concerns. The use of single use cutlery ballooned in the last two years and is still continuing due to concerns regarding hygiene among users. Even though we have almost reached the end of this pandemic, most restaurants still serve customers with plastic-sealed paper napkins and plastic utensils, takeout boxes, and compostable cups to abide by the CDC guidelines. Due to their small size, light weight, and contamination, single use cutlery often end up in landfills or worse, as litter.  
+
+As a solution to this problem and to ease the shift towards an eco-friendly lifestyle we propose the use of the newly introduced Omao material for cutlery. Omao is a material that is *truly biodegradable*. It uses naturally occuring materials derived from vegetable oil that will automatically breakdown into CO~2~ and H~2~O.^[2](https://www.omaostraw.com/)^ This material is durable, and decomposes within 90 days unlike other materials used for cutlery. 
+The use of Omao’s material could bridge the gap between the existing biodegradable cutlery and plastic cutlery. 
+
+<center>
+<img src = "https://sep.yimg.com/ca/I/yhst-137472505956436_2639_3066475974" width = 250>
+</center>
+
+# Survey Design
+
+ In this survey, apart from the eligibility requirement part at the very beginning, there are three main parts: Background & Introduction, the main Choice Questions, and Respondent Information Collection. 
+
+- **Eligibility Requirements**
+
+  Firstly, The targeted market for *Omao disposable cutlery* is the disposable cutlery market within the United States, and the targeted customers are people who use disposable cutlery in their daily life. Thus, we wanted to collect preference information about disposable cutleries only from respondents who currently live in the United States and those who would use disposable cutlery at least once a month.
+  
+  Secondly, to secure the credibility and reliability of the collected data from the survey, we only allowed respondents who are 18 years or older and agreed with the consent information. 
+  
+- **Background & Introduction**
+
+  In this section, the respondent is given the opportunity to watch a one minute background information video on the impact of using general plastic products. An optional question follows this video to check respondent's awareness of the content from the video.  
+  
+  *Omao* company is briefly introduced in the next page, with a link to the official website being provided as well. 
+  
+  Lastly, we introduced the parameters of our survey. Here all four attributes presented in the subsequent conjoint questions were separately described for better understanding. An attributes table was also presented to clearly define different levels and units for each attribute.
+
+- **Choice Questions**
+
+  There were 3 alternatives for each question and 8 valid questions in total for each respondent (There was a practice question before the actual conjoint question, the response from this practice question was not counted in the final valid data). Pictures were provided to indicate certain attributes for each alternative.
+  
+  A sample of the conjoint questions is presented below. A full copy of our survey is presented in the appendix section.
+  
+  <img src="https://raw.githubusercontent.com/omaoanalytics/document/main/image/Sample Survey Question.jpg"  width=600>
+
+- **Respondent Information** 
+
+  Considering the requirement to study different attributes for  *Omao disposable cutlery*, we collected the following demographic information from the qualified respondents.
+  
+  **1.** The basic information regarding their age, gender, and race. This information would be useful for further studying changes in preferences based on different groups of respondents.
+  
+  **2.** Respondents' state of residence. This information would be useful for further recommendation of product promotion to different locations based on the preference level from respondents.
+  
+  **3.** Respondents' education level and approximate income level. This information would be useful for identifying the correlation with how much consumers are willing to pay for the product.
+  
+  **4.** The size of the household (how many adults and/or minors in total). This information would be useful for identifying the specific need for cutlery in a household.
+  
+  **5.** The frequency of usage of disposable cutlery *before* and *since* the Covid-19 pandemic. Though we estimated that people would use disposable cutlery more frequently due to the requirements of health and sanitation, people's lifestyles were greatly impacted by the Covid-19 pandemic when more and more people chose to work from home. Thus, that information could be useful for us to predict the future market and potential development trend of disposable cutlery.  
+  
+  **6.** People's purchase habits for disposable cutlery products. This information would be useful for selecting the best platform to sell the products.
+
+# Data Analysis
+
+## Data Cleaning and Summary
+```{r datacleaning, echo=FALSE, message=FALSE}
+# Import raw data
+p1 <- read_csv(here("data", "Final_Survey_Part1.csv"))
+p2 <- read_csv(here("data", "Final_Survey_Part2.csv"))
+p3 <- read_csv(here("data", "Final_Survey_Part3.csv"))
+
+# Screening and Consent section
+p1 <- p1 %>% 
+    # Compute time value for this section, replace NAs with 0
+    mutate(
+        created = ymd_hms(created, tz = "EST"),
+        ended = ymd_hms(ended, tz = "EST"),
+        time_sec_p1 = as.numeric(ended - created, units="secs"),
+        time_sec_p1 = ifelse(is.na(time_sec_p1), 0, time_sec_p1)
+    ) %>% 
+    # Filter out responses that are before the survey was fielded
+    filter(created > ymd("2021-11-23")) %>% 
+    # Filter out NA session values
+    filter(!is.na(session)) %>% 
+    # drop unnecessary variables
+    select(session, time_sec_p1, screenoutLoc,
+           screenoutUser, consentAge, consentUnderstand)
+
+# Choice Questions section
+p2 <- p2 %>% 
+    # immediately drop the humongous variables
+    select(-df_json, -df) %>% 
+    # Compute time value for this section, replace NAs with 0
+    mutate(
+        created = ymd_hms(created, tz = "EST"),
+        ended = ymd_hms(ended, tz = "EST"),
+        time_sec_p2 = as.numeric(ended - created, units="secs"),
+        time_sec_p2 = ifelse(is.na(time_sec_p2), 0, time_sec_p2)
+    ) %>% 
+    # Calculate the time spent on each question
+    mutate(
+        videotime = as.numeric(time4 - time2, units = "secs"),
+        cbc1time = as.numeric(time8 - time7, units = "secs"),
+        cbc2time = as.numeric(time9 - time8, units = "secs"),
+        cbc3time = as.numeric(time10 - time9, units = "secs"),
+        cbc4time = as.numeric(time11 - time10, units = "secs"),
+        cbc5time = as.numeric(time12 - time11, units = "secs"),
+        cbc6time = as.numeric(time13 - time12, units = "secs"),
+        cbc7time = as.numeric(time14 - time13, units = "secs"),
+        cbc8time = as.numeric(ended - 
+                      ymd_hms(time14, tz="EST"), units="secs")
+    ) %>% 
+    # Filter out NA session values
+    filter(!is.na(session)) %>% 
+    # drop unnecessary variables
+    select(session, time_sec_p2, respondentID, videotime, starts_with("cbc"))
+
+# Respondent Information section
+p3 <- p3 %>% 
+    # Compute time value for this section, replace NAs with 0
+    mutate(
+        created = ymd_hms(created, tz = "EST"),
+        ended = ymd_hms(ended, tz = "EST"),
+        time_sec_p3 = as.numeric(ended - created, units="secs"),
+        time_sec_p3 = ifelse(is.na(time_sec_p3), 0, time_sec_p3)
+    ) %>% 
+    # Filter out NA session values
+    filter(!is.na(session)) %>% 
+    # drop unnecessary variables
+    select(session, time_sec_p3, yearDOB:platform)
+
+# Join all parts together using the session variable
+data <- p1 %>% 
+    left_join(p2, by = "session") %>% 
+    left_join(p3, by = "session") %>% 
+    # No longer need session variable
+    select(-session)
+nresp <- nrow(data)
+
+# Filter out bad responses ------------------
+
+# Drop people who got screened out
+data <- data %>% 
+    filter(screenoutLoc == 1) %>% 
+    filter(!is.na(screenoutUser), screenoutUser != 1)
+nresp_screened <- nrow(data)
+
+# Drop people who did not complete the consent
+data <- data %>% 
+    filter(consentAge == 1, consentUnderstand == 1)
+nresp_consented <- nrow(data)
+
+# Drop anyone who didn't complete all choice questions
+data <- data %>% 
+    filter(!is.na(cbc1)) %>% 
+    filter(!is.na(cbc2)) %>% 
+    filter(!is.na(cbc3)) %>% 
+    filter(!is.na(cbc4)) %>% 
+    filter(!is.na(cbc5)) %>% 
+    filter(!is.na(cbc6)) %>% 
+    filter(!is.na(cbc7)) %>% 
+    filter(!is.na(cbc8))
+nresp_completed <- nrow(data)
+
+# Drop respondents that always chose the same option
+data <- data %>% 
+    filter(cbcAllSame == 0)
+nresp_realansws <- nrow(data)
+
+# Drop respondents who went too fast
+
+data <- data %>% 
+    mutate(
+        # Now compute the total time
+        time_min_total = (time_sec_p1 + time_sec_p2 + 
+                          time_sec_p3) / 60
+    )
+# Look at summary of completion times
+#summary(data$time_min_total)
+# Drop anyone who finished in under the 5th percentile of completion times
+time_0.05 <- quantile(data$time_min_total, 0.05)
+data <- data %>% 
+    filter(time_min_total >= time_0.05)
+nresp_enoughtime <- nrow(data)
+
+# Drop respondents that spent less than 3 seconds on any choice question
+data <- data %>% 
+    filter(cbc1time >= 3, cbc2time >= 3, cbc3time >= 3,
+           cbc4time >= 3, cbc5time >= 3, cbc6time >= 3,
+           cbc7time >= 3, cbc8time >= 3)
+nresp_thoughtful <- nrow(data)
+
+# Create choice data ------------------
+
+# First gather the data
+choiceData <- data %>% 
+    rename(
+        cbc1choice = cbc1, cbc2choice = cbc2, cbc3choice = cbc3,
+        cbc4choice = cbc4, cbc5choice = cbc5, cbc6choice = cbc6,
+        cbc7choice = cbc7, cbc8choice = cbc8
+    ) %>% 
+    pivot_longer(
+        cols = c(cbc1time:cbc8time,cbc1choice:cbc8choice),
+        names_to = c("qID",".value"),
+        names_pattern = "cbc(.)(.*)") %>% 
+    # Convert the qID variable to a number
+    mutate(qID = parse_number(qID))
+
+# Read in choice questions and join it to the choiceData
+survey <- read_csv("https://raw.githubusercontent.com/omaoanalytics/document/main/final_choice_questions.csv")
+choiceData <- choiceData %>% 
+    rename(respID = respondentID) %>% 
+    left_join(survey, by = c("respID", "qID"))
+
+# Convert choice column to 1 or 0 based on if the alternative was chosen 
+choiceData <- choiceData %>% 
+    mutate(choice = ifelse(choice == altID, 1, 0))
+
+# Drop unused variables
+choiceData <- choiceData %>% 
+    select(-image, -cbcPractice, -cbcAllSame, -setOptions2,
+           -contains("screenout"), -contains("consent")) %>% 
+    select(contains("time_sec"),time_min_total,videotime,
+           yearDOB:platform,time,qID,respID,choice:setOptions)
+
+# Set new values for respID and obsID
+nRespndnts <- nrow(data)
+nAlts <- max(survey$altID)
+nQtions <- max(survey$qID)
+choiceData$respID <- rep(seq(nRespndnts), each = nAlts*nQtions)
+choiceData$obsID  <- rep(seq(nRespndnts*nQtions), each = nAlts)
+
+# Save cleaned data for modeling
+write_csv(choiceData, here("data", "choiceData.csv"))
+```
+
+We started out with `r nresp` responses to our survey; `r nresp - nresp_consented` were removed by the screening and consent questions. Of those left, only `r nresp_completed` respondents answered all the choice questions. However, `r nresp_completed - nresp_realansws` chose the same response for every question, and so were discarded. We further took into consideration how long respondents spent on the entire survey, eventually removing the bottom 5th percentile of responses, those who spent less than `r round(time_0.05,1)` minutes on the survey. In the same vein we checked how long respondents spent on each individual choice question, setting a minimum of 3 seconds to read the three alternatives and weigh them against each other. Ultimately, we ended up with `r nresp_thoughtful` responses to analyze.
+
+The demographics information we collected in those responses is summarized as follows.
+
+```{r plotgender, echo=FALSE, message=FALSE}
+# Keep only the respondent information
+respData <- choiceData %>% 
+    select(videotime:platform) %>% 
+    # remove the duplicates created when we did pivot_longer
+    distinct()
+
+# GENDER
+labels_gender <- c("NR","Man","Woman","Other")
+plot_gender <- respData %>% 
+    select(gender) %>% 
+    left_join(data.frame(
+        gender = c("man","woman","other","prefer_n_s"),
+        genderOrder = c("bman","cwoman","other","aNR")),
+        by = "gender") %>% 
+    ggplot(aes(x = genderOrder, fill = genderOrder))+
+    geom_bar()+
+    labs(x = "Gender", y = "Respondents")+
+    scale_x_discrete(labels = labels_gender)+
+    theme(legend.position = "none")+
+    theme_bw()
+plot_gender
+```
+<center>Fig 1. Gender distribution.</center>
+
+More women than men took our survey, with `r round(count(respData %>% filter(gender == "woman")) / nrow(respData) * 100,1)`%. In total there were `r count(respData %>% filter(gender == "prefer_n_s"))` who chose not to report their gender and `r count(respData %>% filter(gender == "other"))` who reported their gender as "Other".
+
+```{r plotage, echo=FALSE, message=FALSE}
+# YEARDOB
+plot_dob <- respData %>% 
+    select(yearDOB) %>% 
+    filter(!is.na(yearDOB), yearDOB != "prefer_n_s") %>% 
+    mutate(yearDOB = as.double(yearDOB)) %>% 
+    ggplot(aes(x = yearDOB))+
+    geom_histogram(binwidth = 5)+
+    labs(x = "Birth Years", y = "Respondents")+
+    theme_bw()
+plot_dob
+```
+<center>Fig 2. Age distribution.</center>
+
+We can see in the chart that the age distribution skews younger. In fact `r round(count(respData %>% filter(yearDOB <1990)) / nrow(respData) * 100,1)`% were born before 1990. Only `r count(respData %>% filter(yearDOB == "prefer_n_s"))` people chose not to state their age. 
+
+```{r plotrace, echo=FALSE, message=FALSE}
+# RACE & RACEOTHER
+raceData <- respData %>% 
+    mutate(race = ifelse(!is.na(race),race,raceOther),
+           race = ifelse(is.na(race),"prefer_n_s",race)) %>% 
+    select(race) %>% 
+    mutate(asian = ifelse(str_detect(race, "asian"),1,0),
+           black = ifelse(str_detect(race, "black"),1,0),
+           hispanic =ifelse(str_detect(race,"hispanic"),1,0),
+           mideast =ifelse(str_detect(race, "Middle E"),1,0),
+           native = ifelse(str_detect(race, "native"),1,0),
+           pacific = ifelse(str_detect(race, "pacific"),1,0),
+           white = ifelse(str_detect(race, "white"),1,0),
+           nr = ifelse(str_detect(race, "n_s"),1,0)
+           )
+raceTable <- data.frame(
+    "Race"=c("Asian","Black","Hispanic","Native",
+             "Middle Eastern","Pacific Islander",
+             "White","Not Reported"),
+    "Respondents" =c(
+        sum(raceData$asian),    sum(raceData$black),
+        sum(raceData$hispanic), sum(raceData$mideast),
+        sum(raceData$native),   sum(raceData$pacific),
+        sum(raceData$white),    sum(raceData$nr))
+    ) %>% 
+  mutate(Percent = scales::label_percent(accuracy = 0.1)
+                   (Respondents/nrow(respData))
+         )
+kable(raceTable)
+```
+<center>Table 1. Race distribution.</center>
+
+The above table shows all the races that were reported by respondents. Of these, `r count(raceData %>% filter(str_detect(race,",")))` respondents reported multiple races.
+
+Collection of states of residence ended up being nigh meaningless, with state population and respondent concentration following similar trends.
+
+```{r ploteducation, echo=FALSE, message=FALSE}
+# EDUCATION
+labels_edu <- c("No H.S.","H.S.","some College","Vocational",
+                "Associate Deg.","Bachelor's","Graduate")
+plot_education <- respData %>% 
+    select(education) %>% 
+    left_join(data.frame(
+        education = c("no_hs","hs","college_some","vocational",
+                      "degree_associate","degree_bs","degree_grad","prefer_n_s"),
+        eduOrder = c("a_no_hs","b_hs","college_some","d_vocational",
+                     "e_associate","f_bs","graduate","NR")),
+        by = "education") %>% 
+    ggplot(aes(x = eduOrder, fill = eduOrder))+
+    geom_bar()+
+    labs(x = "Education Level", y = "Respondents")+
+    scale_x_discrete(labels = labels_edu)+
+    theme(legend.position = "none")+
+    theme_bw()
+plot_education
+```
+<center>Fig 4. Education distribution.</center>
+
+As we can see in education, there is a huge concentration of respondents with Bachelor's degrees. Bachelor's degrees accounted for `r count(respData %>% filter(education == "degree_bs"))` and `r round(count(respData %>% filter(education == "degree_bs")) / nrow(respData) * 100,1)`% of respondents. Combined with graduate degrees, completed college educations accounted for `r round(count(respData %>% filter(education == "degree_bs" | education == "degree_grad")) / nrow(respData) * 100,1)`% of all respondents.
+
+```{r plotincome, echo=FALSE, message=FALSE}
+# INCOME
+labels_inc <- c("< 10","10 - 15","15 - 25","25 - 35","35 - 50",
+                "50 - 75","75 - 100","100 - 150","150 - 200",
+                "> 200","NR")
+plot_income <- respData %>% 
+    select(income) %>% 
+    ggplot(aes(x = income, fill = income))+
+    geom_bar()+
+    labs(x = "Income in $1,000 per Year", y = "Respondents")+
+    scale_x_discrete(labels = labels_inc)+
+    theme(legend.position = "none")+
+    theme_bw()
+plot_income
+```
+<center>Fig 5. Income distribution.</center>
+
+From graph, income looks to be mostly normally distributed around about \$60,000 a year. 
+
+```{r plotadults, echo=FALSE, message=FALSE}
+# ADULTS & MINORS
+plot_adults <- respData %>% 
+    select(adults) %>% 
+    filter(!is.na(adults)) %>% 
+    mutate(adults = ifelse(adults>=5,"5+",adults)) %>% 
+    ggplot(aes(x = adults))+
+    geom_bar()+
+    labs(x = "Adults in Respondent's Household", y = "Respondents")+
+    theme_bw()
+#  25 NAs in adults
+# 158 NAs in minors
+plot_adults
+```
+<center>Fig 6. Household size distribution.</center>
+
+We can see a majority of respondents live in 1- or 2-person households. (A total of `r round(count(respData %>% filter(adults <=2)) / nrow(respData %>% filter(!is.na(adults))) * 100,1)`% in fact.) Answers ranged from 1-person housedholds up to `r max((respData %>% filter(!is.na(adults)))$adults)`-person households. There were also `r count(respData %>% filter(is.na(adults)))` respondents who chose not to report the number of adults in their household. The response for minors was even worse, with `r count(respData %>% filter(is.na(minors)))` not providing any response, not even a zero, making us unable to use that data in any meaningful way.
+
+```{r plotvideowatch, echo=FALSE, message=FALSE}
+# VIDEOTIME
+plot_video <- respData %>% 
+    select(videotime) %>% 
+    mutate(watched = ifelse(videotime > 120, " Watched", "Skipped")) %>% 
+    ggplot(aes(x = watched))+
+    geom_bar()+
+    labs(x = "Educational Video", y = "Respondents")+
+    theme_bw()
+plot_video
+# STATE
+#respData %>% 
+#    select(state) %>% 
+#    ggplot(aes(x = state,fill = state))+
+#    geom_bar()
+# generally reflective of population trends
+```
+<center>Fig 7. Proportion of respondents who watched the educational video.</center>
+
+Because we were recording the times as respondents went through the survey, we were able to make a guess at whether respondents took the time to actually watch the educational video or not. The video was 80 seconds long, and the timespan covered the following page where Omao was introduced; we therefore decided on 2 minutes as being the minimum amount of time to spend on those pages if the video was watched. As you can see here, the split is fairly even. By this metric, `r round(count(respData %>% filter(videotime>120)) / nrow(respData) * 100,1)`% of respondents watched the video.
+
+## Modeling
+After data cleaning, we apply the estimate multinomial logit (MNL) models by the `logitr`, which is a library package in R that help us to create the model and conduct further analysis.
+
+First, we have to create some dummy coded variables for categorical variables for the attributes of `material` and `setOptions`. Due to plastic disposable cutlery being the most numerous product on the market, we decided to set Plastic as the baseline of the `material` attribute. As for the `setOption`, we selected simplest set type as the baseline, which is the package that only includes a fork.
+
+*Model Equation*
+$$u_j = \beta_1 x_j^{price} + \beta_2 x_j^{quantity} + \beta_3 \delta_j^{Bamboo} + \beta_4 \delta_j^{Eco}  + \beta_5 \delta_j^{setFK}+\beta_6 \delta_j^{setFKS} + \varepsilon_j$$
+
+If the product is plastic, the `Bamboo` and `Eco` dummy variables will be zero; likewise, if the set type of product is fork only, `setFK` and `setFKS` will be zero.
+
+To build the model correctly, we would need to divide the `price` with the default `quantity`, which is **50**. 
+
+The following is the summary of the multinomial logit (MNL) models.
+
+```{r modeling-01, echo=FALSE, message=FALSE}
+load(here("models","model.RData"))
+summary(mnl)
+```
+We need to focus on the model's coefficients.
+```{r modeling-02, echo=FALSE, message=FALSE}
+kable(coef(summary(mnl)))
+```
+
+From the result, we could see that the coefficients of `price` are negative which means people prefer the cheaper product. The effect on quantity in the package is really small.
+
+For the `material` attribute, we could see that `material_Bamboo` and `material_Eco` are all positive, which means people prefer material of disposable cutlery in bamboo and Eco-friendly materiel over plastic, especially for the Eco-friendly one.
+
+For the `setOptions` attribute, we could see that people all slightly prefer the set types that include fork&knife and fork&knife&spoon more than the package only include a fork.
+
+```{r modeling-03, echo=FALSE, message=FALSE}
+coefs <- coef(mnl)
+covariance <- vcov(mnl)
+       
+prob <- data.frame(mnl$probabilities)
+std <- se(mnl)
+attri <- c(
+    "set_price",
+    "quantity" ,
+    "material_Bamboo","material_Eco", #Base-Plastic
+    "setOptions_fk", "setOptions_fks" #base:f
+) 
+
+plot_mnl_coefs <- qplot(x = attri,y = coefs)+
+    geom_errorbar(aes(x=attri, ymin=coefs-std, ymax=coefs+std), width=0.25)+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot_mnl_coefs
+```
+<center>Fig 8. Coefficient of all Variables with Standard Deviation of MNL Model.</center>
+
+## Other Approach
+We also run the model that set `price` and `quantity` as the categorical variables. From this model, we could slightly tell the difference effect of quantity; however, for the feature of the dataset and further analysis, we believe that the variables `price` and `quantity` should be numerical data. 
+
+```{r modeling-04, , echo=FALSE, message=FALSE}
+coefs <- coef(mnl_dummy)
+covariance <- vcov(mnl_dummy)
+
+prob <- data.frame(mnl_dummy$probabilities)
+std <- se(mnl)
+attri <- c(
+    "price_25","price_30",#Base:20
+    "quantity_150","quantity_200",#Base:50
+    "material_Bamboo","material_Eco", #Base:Plastic
+    "setOptions_fk", "setOptions_fks" #Base:f
+) 
+
+plot_mnl_dummy_coefs <- qplot(x = attri,y = coefs)+
+    geom_errorbar(aes(x=attri, ymin=coefs-std, ymax=coefs+std), width=0.25)+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot_mnl_dummy_coefs 
+```
+<center>Fig 9.  Coefficient of all Variables with Standard Deviation of MNL Dummy Model </center>
+
+## Utility 
+
+Let's see the apply our default setting of the product to the utility to review each attribute and review the model more clearly. We can clearly see that the influence of `quantity` is the smallest and you can headly tell by the visulization result.
+
+```{r utility, echo=FALSE, message=FALSE}
+load(here("models","model.RData"))
+coefs <- coef(mnl)
+
+df_price <- data.frame(level = c(20, 25, 30)) %>% 
+    mutate(
+        diff    = level - min(level),
+        utility = diff*coefs['set_price'])
+
+df_quantity <- data.frame(level = c(50, 100, 150, 200)) %>% 
+    mutate(
+        diff    = level - min(level),
+        utility = diff*coefs['quantity'])
+
+df_material <- data.frame(
+    level = c("Plastic", "Bamboo", "Eco"),
+    utility = c(0, coefs['material_Bamboo'], coefs['material_Eco']))
+
+df_setOptions = data.frame(
+    level = c("F", "F&K",'F&K&S'),
+    utility = c(0, coefs['setOptions_fk'], coefs['setOptions_fks']))
+
+# Get upper and lower bounds (plots should have the same y-axis)
+utility <- c(
+    df_price$utility, df_quantity$utility, 
+    df_material$utility, df_setOptions$utility) 
+ymin <- floor(min(utility))
+ymax <- ceiling(max(utility))
+
+# Plot the utility for each attribute
+plot_price <- df_price %>% 
+    ggplot() +
+    geom_line(aes(x = level, y = utility)) +
+    geom_point(aes(x = level, y = utility))+
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    labs(x = 'Price ($)', y = 'Utility') +
+    theme_bw()
+
+plot_quantity <- df_quantity %>% 
+    ggplot() +
+    geom_line(aes(x = level, y = utility))+
+    geom_point(aes(x = level, y = utility)) +
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    labs(x = 'Quantity (set no.)', y = 'Utility') +
+    theme_bw()
+
+plot_material <- df_material %>% 
+    ggplot() +
+    geom_point(aes(x = level, y = utility)) +
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    labs(x = 'Materials', y = 'Utility') +
+    theme_bw()
+
+plot_setOptions <- df_setOptions %>% 
+    ggplot() +
+    geom_point(aes(x = level, y = utility)) +
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    labs(x = 'Set Options', y = 'Utility') +
+    theme_bw()
+# Plot all plots in one figure
+plot_mnl <- plot_grid(
+    plot_price, plot_quantity, plot_material, plot_setOptions,
+    nrow = 1
+)
+
+plot_mnl
+```
+<center>Fig 10. Utility of each Variable </center>
+
+We also run the model that sets `price` and `quantity` as the categorical variables. From this model, we could slightly tell the difference among different quantities; however, for the feature of the dataset and further analysis, we believe that the variables `price` and `quantity` should be numerical data. 
+
+```{r modeling-05, echo=FALSE, message=FALSE}
+coefs <- coef(mnl_dummy)
+covariance <- vcov(mnl_dummy)
+
+prob <- data.frame(mnl_dummy$probabilities)
+std <- se(mnl)
+attri <- c(
+    "price_25","price_30",#Base:20
+    "quantity_150","quantity_200",#Base:50
+    "material_Bamboo","material_Eco", #Base:Plastic
+    "setOptions_fk", "setOptions_fks" #Base:f
+) 
+
+plot_mnl_dummy_coefs <- qplot(x = attri,y = coefs)+
+    geom_errorbar(aes(x=attri, ymin=coefs-std, ymax=coefs+std), width=0.25)+
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+plot_mnl_dummy_coefs 
+```
+
+# Results
+
+## Willingness to Pay
+
+Using the data that we collected from our survey, we computed consumers' Willingness to Pay for the attributes Quantity, Set Option, and Material using the model data.  
+
+```{r wtpmodel, echo=FALSE}
+data <- read_csv(here("data", "choiceData_model.csv"))
+
+model_wtp <- logitr(
+    data    = data,
+    outcome = "choice",
+    obsID   = "obsID",
+    pars    = c(
+        "quantity" ,
+        "setOptions_fk", "setOptions_fks" , #base:f
+        "material_Bamboo", "material_Eco" #base:material_Plastic 
+    ),
+    price   = 'set_price', #tell which is price, dont include it in pars
+    modelSpace = 'wtp', #preference space model defult 
+    numMultiStarts = 10 # Use a multi-start since log-likelihood is nonconvex
+)
+
+# Method 1: Computed WTP from WTP space model:
+# Load estimated space model # Load estimated models
+coefs <- coef(model_wtp)
+covariance <- vcov(model_wtp)
+wtp_draws <- as.data.frame(MASS::mvrnorm(10^4, coefs, covariance))
+wtp_ci2 <- ci(wtp_draws)
+wtp_ci2 <- wtp_ci2[-1,] # Drop lambda (we won't plot this)
+wtp_cimean <- wtp_ci2 %>% 
+  select(mean)
+```
+
+From our computations it is evident that the WTP for quantity is the lowest with a value of **\$`r wtp_cimean[1,1]`**. This value being near 0 indicates that quantity as an attribute did not have much impact on consumers’ willingness to pay. It did however seem to have a negative correlation, indicating that large quantities are not seen as desirable. On the other hand, material has a strong effect on willingness to pay. With plastic as the base model in our computations, consumers were willing to pay **\$`r wtp_cimean[2,1]`** extra for  _Bamboo_. _Eco-friendly_ material is even more desirable, with a WTP of **\$`r wtp_cimean[3,1]`**. This proves that consumers value sustainability in their cutlery more than price. The set options **FK** and **FKS** (with **F** set as base) have willingness to pay values of **\$`r wtp_cimean[4,1]`** and **\$`r wtp_cimean[5,1]`**. The difference implies that consumers were willing to pay more for a set consisting of a fork, knife & spoon as opposed to fork & knife or fork only.   
+
+The below plot of all the computed willingness to pay along with their 95% confidence intervals, helps visualize the results better.
+
+```{r plotwtp, echo=FALSE}
+# -----------------------------------------------------------------------------
+# Plot WTP results from WTP space model
+
+wtp_ci <- wtp_ci2
+
+# Separate coefficient CIs by attribute 
+wtp_ci$par <- row.names(wtp_ci)
+wtp_quantity  <- wtp_ci %>% filter(par == 'quantity')
+wtp_setOptions  <- wtp_ci %>% 
+    filter(par == 'setOptions_fk' | par == "setOptions_fks")
+wtp_material  <- wtp_ci %>% 
+    filter(par== 'material_Bamboo' | par == 'material_Eco')
+
+
+# Create data frames for plotting each attribute:
+#   level   = The attribute level (x-axis)
+#   utility = The utility associated with each level (y-axis)
+df_quantity <- data.frame(level = c(50, 150, 200)) %>%
+    mutate(
+        diff  = level - min(level),
+        mean  = diff*wtp_quantity$mean,
+        lower = diff*wtp_quantity$lower,
+        upper = diff*wtp_quantity$upper)
+
+df_set_options <- data.frame(level = c("f", "fk", "fks")) %>%
+    mutate(
+        mean  = c(0, wtp_setOptions$mean),
+        lower = c(0, wtp_setOptions$lower),
+        upper = c(0, wtp_setOptions$upper))
+
+df_material <- data.frame(level = c("Plastic", "Bamboo", "Eco")) %>%
+    mutate(
+        mean  = c(0, wtp_material$mean),
+        lower = c(0, wtp_material$lower),
+        upper = c(0, wtp_material$upper))
+
+# Get upper and lower bounds (plots should have the same y-axis)
+ymin <- floor(min(c(
+    df_quantity$lower,
+    df_set_options$lower,
+    df_material$lower)))
+ymax <- ceiling(max(c(
+    df_quantity$upper,
+    df_set_options$upper,
+    df_material$upper)))
+
+# Plot the WTP for each attribute *with 95% CI*
+plot_quantity <- df_quantity %>%
+    ggplot(aes(x = level, y = mean, ymin = lower, ymax = upper)) +
+    geom_ribbon(alpha = 0.2) +
+    geom_line() +
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    labs(x = 'Quantity (sets per purchase)', y = 'WTP ($)') +
+    theme_bw() #continuous plot
+
+plot_material <- df_material %>%
+    ggplot(aes(x = level, y = mean, ymin = lower, ymax = upper)) +
+    geom_point() +
+    geom_errorbar(width = 0.3) +
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    labs(x = 'Material type', y = 'WTP ($)') +
+    theme_bw()
+
+plot_set_options <- df_set_options %>%
+    ggplot(aes(x = level, y = mean, ymin = lower, ymax = upper)) +
+    geom_point() +
+    geom_errorbar(width = 0.3) +
+    scale_y_continuous(limits = c(ymin, ymax)) +
+    labs(x = 'Set Options', y = 'WTP ($)') +
+    theme_bw()
+
+# Plot all plots in one figure
+plot_model_wtp <- plot_grid(
+    plot_quantity, plot_set_options, plot_material,
+    nrow = 1
+)
+
+plot_model_wtp
+```
+<center>Fig 8. Willingness to pay for different attributes.</center>
+
+## Market Shares
+
+To understand the market share that Omao could achieve based on our model, we ran a market simulation to predict probable market shares of different products. The competing products that we used to identify the market shares are given below. 
+
+```{r marketsharetable, echo=FALSE}
+market_data1 <- data.frame(
+  Alternative = c(1, 2, 3), 
+  SetPrice   = c(0.16, 0.25, 0.48), # Price based on market data ($)
+  Quantity    = c(50, 150, 200),   # Quantity in the box
+  SetOptions  = c("F", "FK", "FKS"), #base:f
+  Material    = c("Eco", "Bamboo", "Plastic")  #base:plastic
+)
+
+kable(market_data1)
+```
+<center>Table 2. Market alternatives.</center>
+
+```{r marketshareplot, echo=FALSE}
+# read Market simulation data
+load(here("models", "sim_model_linear.RData"))
+
+sim_model_linear %>% 
+    mutate(label = c("Eco-friendly", "Bamboo", "Plastic")) %>% 
+    ggplot(aes(
+        x = label, y = predicted_prob, 
+        ymin = predicted_prob_lower, ymax = predicted_prob_upper)) +
+    geom_col(fill = "grey", width = 0.6) +
+    geom_errorbar(width = 0.3) +
+    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    labs(x = 'Alternative', y = 'Market Shares') +
+    theme_bw()
+```
+<center>Fig 9. Market shares.</center>
+
+By the running this single market alternative, we found that Eco-friendly material takes the highest market share of all the materials with **`r scales::percent(sim_model_linear$predicted_prob[1], digits=3)`**. Bamboo captures a market share of **`r scales::percent(sim_model_linear$predicted_prob[2], digits=3)`**, while plastic captures the least with **`r scales::percent(sim_model_linear$predicted_prob[3], digits=3)`**.
+
+This indicates that the Eco-friendly option has a stronger stand in the market compared to bamboo and plastic alternatives. 
+
+To confirm the market shares, we ran a simulation using multiple alternatives. On comparing our baseline parameters with multiple market data, we noticed a repeated pattern of Eco-friendly material capturing the highest market share and plastic capturing the lowest.
+
+```{r multisimMarketshare, echo=FALSE}
+# Multiple simulations using the linear model
+
+# Read in simulation model multi
+load(here("data","sim_model_linear_multi.RData"))
+
+sims_multi  <- sim_model_linear_multi %>% filter(altID == 1)
+sims_multib <- sim_model_linear_multi %>% filter(altID == 2)
+sims_multip <- sim_model_linear_multi %>% filter(altID == 3)
+
+sims_multif   <- sim_model_linear_multi %>% filter(setOptions == "f")
+sims_multifk  <- sim_model_linear_multi %>% filter(setOptions == "fk")
+sims_multifks <- sim_model_linear_multi %>% filter(setOptions == "fks")
+
+sims_multi50  <- sim_model_linear_multi %>% filter(quantity == 50)
+sims_multifk  <- sim_model_linear_multi %>% filter(setOptions == "fk")
+sims_multifks <- sim_model_linear_multi %>% filter(setOptions == "fks")
+```
+
+On running this simulation, the Eco-Friendly material captured a market share of **`r scales::percent(sims_multi$predicted_prob, digits=3)`**, while bamboo held market shares of **`r scales::percent(sims_multib$predicted_prob, digits=3)`**. In both the single and multi model simulations, plastic mostly held the lowest market share of **`r scales::percent(sims_multip$predicted_prob, digits=3)`**
+
+From our analysis, it is understood that the material used for the cutlery influences the market shares more than the set options and quantity.
+
+```{r plotMarketSim, echo=FALSE}
+load(here("data","sim_model_linear_multi.RData"))
+
+sim_model_linear_multi %>% 
+  ggplot(aes(
+    x= as.factor(altID), y= predicted_prob, 
+    ymin= predicted_prob_lower, ymax= predicted_prob_upper))+
+  geom_col(fill = "grey", width = 0.6) +
+  geom_errorbar(width= 0.3)  +
+  facet_wrap(~obsID) +
+  scale_y_continuous(limits = c(0,1), labels= scales::percent)+
+  labs(x= 'Alternatives', y= 'Market shares') +
+  scale_x_discrete(labels = c("Eco", "Bamboo", "Plastic")) +
+  theme_bw() #1-Eco, 2-Bamboo, 3-Plastic 
+```
+<center>Fig 10. Multiple market simulations.</center>
+
+## Sensitivity Analysis
+
+To identify the impact of the price of the cutlery on the market shares, we ran a simulation using prices from our baseline model. For this computation we changed the _price per set_ of the _Eco-Friendly_ option to identify the change in market shares (the set price was also presented to our survey takers).
+
+```{r sensitivity, echo=FALSE}
+load(here("models", "sens_price_model_linear.RData"))
+# -----------------------------------------------------------
+# Make a line plot of the market sensitivity to price (with uncertainty)
+
+share_price_plot <- 
+  sens_price %>% 
+  ggplot(aes(
+    x = set_price, y = predicted_prob, 
+    ymin = predicted_prob_lower, ymax = predicted_prob_upper)) +
+  geom_ribbon(alpha = 0.2) +
+  # Use a dashed line for the full range of prices
+  geom_line(linetype = "dashed") +
+  # Overlay solid line for range of prices included in survey
+  geom_line(
+    data = sens_price %>% filter(set_price <= 30/50, set_price >= 20/50), 
+    linetype = "solid") +
+  expand_limits(x = c(0.2, 0.8), y = c(0, 1)) +
+  scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+  labs(x = 'Price ($)', y = 'Market Share') +
+  theme_bw()
+
+share_price_plot
+price_125 <-  sens_price %>% filter(set_price == 1.2)
+price_diff <- ((1.25-0.2)/0.2)
+price_8 <-  sens_price %>% filter(set_price == 0.8)
+```
+<center>Fig 11. Market Share sensitivity to price.</center>
+
+From our analysis, a downward trajectory is evident with the market shares gradually falling when the price per set increases. Market share drops from **`r scales::percent(sens_price$predicted_prob[1])`** at a price of **\$`r sens_price$set_price[1]`0** per set to **`r scales::percent(price_125$predicted_prob)`** at a price of **\$`r price_125$set_price`0**. This could be a result of people valuing the eco-friendly material more than its price.
+
+The error terms at our price of \$0.80 per set indicate that the market could be as high as _`r scales::percent(price_8$predicted_prob_upper)`_ or as low as _`r scales::percent(price_8$predicted_prob_lower)`_. 
+
+This also means that Eco-friendly cutlery prices could be increased, based on the target market share. The optimal price point to maintain at least a 50% market share would be between **$0.50** to **$0.60** per set.  
+
+## Sensitivity of Revenue to Price
+
+```{r sensitivityRevenue, echo=FALSE}
+load(here("models", "sens_price_model_linear.RData"))
+
+marketSize <- 1000
+rev_data <- sens_price %>%
+  mutate(
+    rev_mean = set_price*marketSize*predicted_prob/100, # Convert to millions
+    rev_low  = set_price*marketSize*predicted_prob_lower/100,
+    rev_high = set_price*marketSize*predicted_prob_upper/100)
+
+rev_datadrop1 <- rev_data %>% 
+  filter(set_price == 0.5)
+rev_diff <- (3.10417-2.8002378)
+```
+
+Our sensitivity analysis indicates that revenue of the market is reasonably sensitive to changes in price. The curve shows that as price increases, revenue increases. But this is only true when price increases from **$0.20** to **$0.80**. The mean revenue drops from _$`r round(rev_datadrop1$rev_mean, 2)` Million_ for a price of \$0.50 per set to a mean revenue of _$2.80 Million_ for a set price of \$0.60.  This shows that by increasing the set price from \$0.50 to \$0.60 per set, there is a possible revenue drop of \$`r round(rev_diff, 2)` Million. Therefore, based on our analysis the ideal price to maximize revenue should be between **$0.50** to **$0.60**.
+
+```{r revenueplot, echo=FALSE}
+rev_price_plot <- rev_data %>% 
+  ggplot(aes(x = set_price, y = rev_mean, ymin = rev_low, ymax = rev_high))+
+  geom_ribbon(alpha = 0.1) +
+  # Use a dashed line for the full range of prices
+  geom_line(linetype = "dashed") +
+  # Overlay solid line for range of prices included in survey
+  geom_line(
+    data = rev_data %>% filter(set_price <= 30/50, set_price >= 20/50), 
+    linetype = "solid") +
+  expand_limits(x = c(0.4, 1), y = c(0,7)) +
+  labs(x = 'Price ($)', y = 'Revenue ($ Millions)') +
+  theme_bw()
+
+rev_price_plot
+rev_4 <- rev_data %>% filter(set_price== 0.4)
+rev_8 <- rev_data %>% filter(set_price == 0.8)
+```
+<center>Fig 12. Revenue with change in price.</center>
+
+With the survey data that we collected, for our baseline cutlery market data, a revenue of **\$`r round(rev_4$rev_mean, 2)` Million** to **\$`r round(rev_8$rev_mean, 2)` Million** is achievable.
+
+# Final Recommendations and Conclusions
+
+In conclusion, we believe that there is great potential for Omao in the disposable cutlery market. This study has shown that with even just a small bit of education and emphasizing of their unique product, consumers can be persuaded to spend more for Omao. From the sensitivity analysis, a 50% market share can maintained a price per set of up to \$0.60. Omao had previously stated that their material costs are about \$2.00-\$2.60 per pound. An average plastic spoon is roughly 2.2 grams. If we assume forks, spoons, and knives are the same weight, the material cost for 50 FKS sets would be \$1.95. If labor is 4x the cost of material, the total cost per 50 sets would be \$10, or \$0.20 each. It should therefore be no problem for Omao to remain below the \$0.60 threshold.
+
+However, even if they go above \$0.60, they can still have good revenue and market share numbers. One key factor will be market infiltration, whether they can get their product on shelves and in front of customers, so that customers have the *opportunity* to look at their options and choose Omao without being inconvenienced by the choice. Another factor that will advantage them is selling cutlery in sets rather than as single forks (or single spoons or single knives). Due to quantity's minimal impact on consumers, Omao should make an internal analysis of production and packaging factors to determine how they might wish to balance quantity and per-package overhead costs.
+
+In the course of this study, it would seem that the biggest opportunity to increase the demand for truly sustainable disposable cutlery is marketing. With only minimal information to go on, survey respondents overwhelmingly chose the more Eco-friendly option, even if it came with higher prices. A couple ads with messages about how Omao fixed a (5 second description) problem, and then actually having their production available right next to the alternatives seems like it will be the winning combination.
+
+# Limitations
+
+Based on the analysis results, we can name the following information as the most valuable information needs to be collected for further studying.
+
+In our survey, we showed the unit price of each individually-wrapped cutlery set and the total price for a certain quantity of products inside one box. If we know respondents’ intention to purchase cutlery, we may define a more appropriate price of product for specific purpose. For example, whether respondents would use the disposable cutlery for events or individual use.
+
+The data collected for quantity depends entirely on the assumption that consumers dispose of the cutlery after one use. This could be different for different users. Collecting data to identify what percentage of survey takers re-use their cutlery versus disposing of cutlery after a single use could help strengthen the study of quantity and decide on an ideal one.
+
+In order to reduce our error values with the small number of survey takers, we removed the attributes _color_ and _Style_ from our survey. These attributes could play an influential role in consumer preference to a particular cutlery type (especially based on the need--an individual who hosts parties often might prefer fancy looking and colorful cutlery). Understanding the impact of these attributes could be useful for future studies. 
+
+In conclusion, the most important unknown element is respondent’s awareness of various materials used for disposable cutlery.
+
+# Appendix
+
+The full text of the survey is presented below. 
+
+```{r fetchsurvey, include=FALSE}
+# Read in the choice questions
+survey <- read_csv("https://raw.githubusercontent.com/omaoanalytics/document/main/final_choice_questions.csv")
+
+# Define the respondent ID
+respondentID <- sample(survey$respID, 1)
+
+# Create the subset of rows for that respondent ID
+survey <- survey %>%
+    filter(respID == respondentID) %>%
+    mutate(image = paste0("https://raw.githubusercontent.com/omaoanalytics/document/main/image/", image))
+```
+
+## Disposable Cutlery Study Survey
+
+Welcome to our survey!
+
+We are engineering graduate students from George Washington University conducting market research on people’s preferences when it comes to using **individually wrapped disposable cutlery** on a day-to-day basis. We would love to hear about what you value the most when you purchase disposable cutlery for your personal use. The results of this survey will give us insights into what product attributes to prioritize when designing a new, eco-friendly disposable cutlery.
+
+We realize how precious your time is, so this survey will take you no more than 10 minutes to complete.
+
+Talk to us if you have any questions, concerns, complaints, or think you have been harmed. You can contact us via email at *omaoanalytics@gmail.com*
+
+To ensure anonymity, your signature is not required. Your willingness to participate in this research study is implied if you proceed.
+
+We really appreciate your input and your time!
+
+<center> <img src = "https://metab.ern-net.eu/wp-content/uploads/2019/02/AdM_Survey_660x320.png" width= 400> </center>
+
+<center> <img src = "https://creativeservices.gwu.edu/sites/g/files/zaxdzs2746/f/downloads/gw_horizontal_2c.png" width=800> </center>
+
+---
+
+## Screenout Questions
+
+**Thank you for your interest in this survey.**
+
+Before we bog you down with learning more about this study, let’s see if this survey is for you!
+
+
+Are you currently living in the United States?
+
+- Yes, I am currently living in the U.S.
+- No, I am currently living outside the U.S.
+
+How often do you use disposable cutlery?
+
+- Never
+- Less than once a month
+- About once a month
+- About 2 or 3 times a month
+- bout once a week
+- 2-5 times a week
+- Every day
+
+---
+
+## Consent form
+
+This survey is conducted by students from the George Washington University in Washington, D.C.
+
+We will not be collecting any sensitive personal information such as your name or address. Your participation and your specific answers will be completely anonymous.
+
+Your participation is voluntary and you may exit the survey at any time as you wish.
+
+If you would like to participate, please answer the following questions:
+
+I am age 18 or older
+
+- Yes
+- No
+
+I have read and understand the above information:
+
+- Yes
+- No
+
+---
+
+## Background
+
+**Why not plastic?**
+
+Here is why... 
+
+The following short video will explain a little more about the plastic materials situation.
+
+(Heads up! We will be asking one question from this video)
+
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/IA9O9YUbQew" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+According to the video, what percentage of plastics are not recycled?
+
+- 95%
+- 10%
+- 91% 
+- 50%
+
+---
+
+## Introduction
+
+**What is Omao?**
+
+**Omao** is a company that discovered a biodegradable material that can be used in place of disposable plastics. Omao's biodegradable material decomposes in about 90 days upon disposal! 
+
+**Why Omao?**
+
+Most of the so-called ‘green’ straws are made of PLA (Polylactic acid, or ‘corn-plastic). PLA straws only break down in a strictly controlled composting environment. Indeed, PLA straws could take anywhere from 100 to 1,000 years to decompose in a landfill, just as bad as traditional petroleum-based plastic straws. 
+
+Omao solves this problem with its groundbreaking material- PHA (Polyhydroxyalkanoates), an advanced, bio-plastic that will naturally breakdown to carbondioxide and water. PHA is a naturally-occurring material derived from vegetable oil. ^[Source](https://www.omaostraw.com/)^
+
+<center>
+<img src = "https://raw.githubusercontent.com/omaoanalytics/Omao/main/image/Omao_logo.png" width= 300>
+</center>  
+
+---
+
+## Product Attributes Introduction
+
+This survey is designed to gather information about 4 different product attributes and how they matter to consumers.
+
+#### Attribute 1: **Price**
+This attribute intends to study the influence of varying prices on your preferences. 
+
+#### Attribute 2: **Quantity**
+The number of sets in one purchase. What would you rather buy: 50 or 150 or 200 fork & knife sets? 
+
+#### Attribute 3: **Material**
+Disposable cutlery can come in several different materials. For the purposes of this survey we will be presenting **General plastic**, **Biodegradable plastic**, and **Bamboo**. In our choice questions cutlery images with **a green leaf** mark denote bio-degradable plastic, wood color denotes bamboo, and plain white denotes general plastic.
+<center>
+<img src = "https://raw.githubusercontent.com/omaoanalytics/document/main/image/Plasticf.jpg" width= 150> <img src = "https://raw.githubusercontent.com/omaoanalytics/document/main/image/Ecof.jpg" width= 150> <img src = "https://raw.githubusercontent.com/omaoanalytics/document/main/image/Bamboof.jpg" width= 150>
+</center>
+From left to right: **General plastic.**  **Biodegradable plastic.** **Bamboo.**
+
+#### Attribute 4: **Set Content**
+This attribute presents the choice of utensils in one package at time of purchase. The images below explain our set options:
+<center>
+<img src = "https://raw.githubusercontent.com/omaoanalytics/document/main/image/Plasticf.jpg" width= 150> <img src = "https://raw.githubusercontent.com/omaoanalytics/document/main/image/Plasticfk.jpg" width= 150> <img src = "https://raw.githubusercontent.com/omaoanalytics/document/main/image/Plasticfks.jpg" width= 150>
+</center>
+From left to right: **A package includes a fork only.** **A package includes a fork and a knife.** **A package includes a fork, a knife and a spoon.**
+
+All of the above information is summarized in the table below.
+
+#### **Attributes Table**
+```{r attsTable, echo=FALSE}
+att_table <- data.frame(
+    "Attribute" = c("Price","Quantity","Material","Set Options"),
+    "Levels" = c("20, 25, 30","50, 150, 200",
+                 "General Plastic, Bamboo, Biodegradable Plastic",
+                 "(Fork), (Fork and Knife), (Fork, knife and spoon)"),
+    "Unit" = c("USD (50 sets in one box)","Set / Count","Type","Type")
+)
+kable(att_table)
+```
+
+---
+
+## Let's Practice!
+
+Let's do a quick practice question. Look at the three options below, and choose which option you would prefer to buy.
+
+For example, if these were the only products available, which would you choose?
+
+**Option 1**
+
+**Material**: Plastic
+
+**Price**: \$20 (\$0.40 each)
+
+**Quantity**: 50 sets per box.
+
+**Set Content**: A package includes a fork and a knife.
+<img src="https://raw.githubusercontent.com/omaoanalytics/document/main/image/Plasticfk.jpg" width=100>
+
+
+**Option 2**
+
+**Material**: Bamboo
+
+**Price**: \$20 (\$0.40 each)
+
+**Quantity**: 50 sets per box.
+
+**Set Content**: A package includes a fork and a knife.
+<img src="https://raw.githubusercontent.com/omaoanalytics/document/main/image/Bamboofk.jpg" width=100>
+
+
+**Option 3**
+
+**Material**: Eco
+
+**Price**: \$20 (\$0.40 each)
+
+**Quantity**: 50 sets per box.
+
+**Set Content**: A package includes a fork, a knife and a spoon.
+<img src="https://raw.githubusercontent.com/omaoanalytics/document/main/image/Ecofks.jpg" width=100>
+
+---
+
+## Great Work!
+
+Now let's begin the choice tasks from the next page. You will be asked **8 questions** in total similar to the practice question. (Only one question reproduced here)
+
+### **Question (1 of 8)**
+ 
+If these were your only options, which would you choose?
+[mc_button type question with the following three options]
+
+```{r survey_alts, include=FALSE}
+alt1 <- survey %>% filter(qID == 1) %>% filter(altID == 1)
+alt2 <- survey %>% filter(qID == 1) %>% filter(altID == 2)
+alt3 <- survey %>% filter(qID == 1) %>% filter(altID == 3)
+```
+
+**Option 1**
+
+**Material**: `r alt1$material`
+
+**Price**: \$`r alt1$price/50*alt1$quantity` (*\$ 0.`r alt1$price*2` each*)
+
+**Quantity**: `r alt1$quantity` sets
+
+**Set Content**: 
+A package includes `r alt1$setOptions2`
+<img src=`r alt1$image` width=100 height=100>
+
+
+**Option 2**
+
+**Material**: `r alt2$material`
+
+**Price**: \$`r alt2$price/50*alt2$quantity` (*\$ 0.`r alt2$price*2` each*)
+
+**Quantity**: `r alt2$quantity` sets
+
+**Set Content**: 
+A package includes `r alt2$setOptions2`
+<img src=`r alt2$image` width=100 height=100>
+
+
+**Option 3**
+
+**Material**: `r alt3$material`
+
+**Price**: \$`r alt3$price/50*alt3$quantity` (*\$ 0.`r alt3$price*2` each*)
+
+**Quantity**: `r alt3$quantity` sets
+
+**Set Content**: 
+A package includes `r alt3$setOptions2`
+<img src=`r alt3$image` width=100 height=100>
+
+---
+
+## Nice Job! 
+
+You have completed the main survey part!
+
+Now, we'd like to ask you for some basic demographic information. As a reminder, your answers will be completely anonymous and we will not be collecting any personal information such as your name or address.
+
+---
+
+## Almost Done!
+
+Your answers are appreciated, as we will be incorporating them into the analysis.
+
+(1) In what year were you born?
+
+- (Drop down menu including `Prefer not to say` and years `1920` - `2003`)
+
+(2) What is your current gender identity?
+
+- Man
+- Woman
+- Genderqueer/Gender non-conforming/Other
+- Prefer not to say
+
+(3) I identify my race as (select all that apply):
+
+- Asian
+- African American or Black
+- White (Not of Hispanic or Latino origin)
+- Hispanic or Latino
+- American Indian or Alaska Native
+- Native Hawaiian or Pacific Islander
+- Prefer not to say
+- Different identity (please state):
+
+(4) What state or region are you currently living in:
+
+- (Drop down menu including all states selections)
+
+(5) What is the highest degree or level of school you have completed? If currently enrolled, please use the highest degree received.
+
+- Less than a high school diploma
+- High school degree or equivalent (e.g. GED)
+- Some college or university, no college degree
+- Trade/technical/vocational training, no degree awarded
+- Associate's degree (e.g. AA, AS)
+- Bachelor’s degree (e.g. BA, BS)
+- Graduate or Professional Degree (e.g. PhD, MD, JD, MS)
+- Prefer not to say
+
+(6) What is your annual household income (from all sources) before taxes and other deductions from pay?
+
+- Less than $10,000
+- $10,000 - $14,999
+- $15,000 - $24,999
+- $25,000 - $34,999
+- $35,000 - $49,999
+- $50,000 - $74,999
+- $75,000 - $99,999
+- $100,000 - $149,999
+- $150,000 - $199,999
+- $200,000 or more
+- Prefer not to say
+
+(7) How many **adults** (over 18) live in your household? (Optional Question)
+
+- (Rolling number selection)
+
+(8) How many **minors** (under 18) live in your household?(Optional Question) 
+
+- (Rolling number selection)
+
+(9) How often did you use disposable cutlery **before** the COVID-19 pandemic? 
+
+- Never
+- About 2 or 3 times a month
+- About once a week
+- About 2-5 times a week
+- Everyday
+
+(10) How often do you use disposable cutlery **since** the COVID-19 pandemic? 
+
+- Never
+- About 2 or 3 times a month
+- About once a week
+- About 2-5 times a week
+- Everyday
+
+(11) What platform(s) do you frequently use to get your disposable cutlery? (Optional Question)
+
+- Online website
+- Physical Box Stores, e.g. Walmart, Dollar Store, Target
+- Physical Supermarkets or Groceries
+- With delivery orders or takeout
+
+---
+
+## **Congratulations! You have reached the end of this survey. **
+
+Please indicate below with any thoughts and feedback about our survey. (optional)
+Your feedback will help us make future improvements :)
+
+Finish
